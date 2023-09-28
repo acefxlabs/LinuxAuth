@@ -1,0 +1,24 @@
+{
+  "name": "linuxauth",
+  "version": "1.0.0",
+  "description": "Using linux users to auth your application + Webmin/Virtualmin Integration",
+  "main": "auth.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acefxlabs/LinuxAuth.git"
+  },
+  "keywords": [
+    "Authentication",
+    "Virtualmin",
+    "Webmin"
+  ],
+  "author": "Abayomi Oyewumi",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/acefxlabs/LinuxAuth/issues"
+  },
+  "homepage": "https://github.com/acefxlabs/LinuxAuth#readme"
+}
