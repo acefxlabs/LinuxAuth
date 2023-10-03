@@ -6,6 +6,7 @@ const { createServer } = require('http'),
 { StringDecoder } = require('string_decoder'),
 { sendResponse } = require('./helper'),
 { readFileSync } = require('fs'),
+url = require('url'),
 { log } = require('console');
 
 let config = {};
@@ -25,12 +26,31 @@ const server  = createServer((request, response) => {
 
     let headers = request.headers,
     method = request.method.toUpperCase(), 
-    data = {};
+    body = {},
+    query = {};
+
+    //Incase Params is passed in URL get it here
+    const parsedUrl = url.parse(request.url, true),
+    params = new Object(parsedUrl.query);
+
+    for (let key in params) {
+        query[key] = params[key];
+    }
 
     if(
         ['GET', 'HEAD'].includes(method)
     ){
-        data = request.query;
+        //Run The Module
+        runModule(
+            {
+                url: parsedUrl.pathname,
+                headers : headers,
+                method : method,
+                query : query,
+                body : body
+            },
+            response
+        );
     }
     else if(
         ['POST', 'PUT', 'PATCH'].includes(method)
@@ -40,11 +60,27 @@ const server  = createServer((request, response) => {
         const decoder = new StringDecoder('utf-8');
         let requestData = '';
 
-        request.on('data', (data) => {
+        request
+        .on('data', (data) => {
             requestData += decoder.write(data);
-        });
+        })
+        .on('end', () => {
+            requestData += decoder.end();
 
-        data = requestData;
+            body = JSON.parse(requestData);
+
+            //Run The Module
+            runModule(
+                {
+                    url: parsedUrl.pathname,
+                    headers: headers,
+                    method: method,
+                    query: query,
+                    body: body
+                },
+                response
+            );
+        });
 
     }
     else {
@@ -58,26 +94,71 @@ const server  = createServer((request, response) => {
         return;
     }
 
-    //Run The Module
-    runModule(
-        response,
-        request.url,
-        headers,
-        data
-    );
 });
 
 
 //Run the module
-function runModule(
+async function runModule(
+    requestData,
     response,
-    url,
-    header,
-    data
 ){
-  log(url);  
-  log(header);  
-  log(data);  
+    //Due to security reason its important we have a way to ensure request is authorized
+    if(
+        !('authorization' in requestData.headers)
+        || !config.allowedAuth.includes(requestData.headers.authorization)
+    ){
+        sendResponse({
+            status: 2,
+            message: "Unathorized Request",
+            code: "C002",
+            headCode: 401
+        }, 
+        response);
+
+        return;
+    }
+
+    //Split url to get data
+    // const urlSplit = 
+    const pathSegments = requestData.url.split('/').filter(segment => segment !== '');
+    
+    if(pathSegments.length === 1){
+        pathSegments.push('index');
+    }
+
+    //construct path to file
+    let path = '.',
+        endPoint = '';
+    pathSegments.forEach((seg, index) => {
+        if(index < (pathSegments.length - 1)){
+            path += `/${seg}`;
+        }else{
+            endPoint = pathSegments[pathSegments.length - 1];
+        }
+    });
+
+    try {
+        const module = require(path);
+
+        const modResponse = await module[endPoint]({
+            headers : requestData.header,
+            query : requestData.query,
+            body : requestData.body,
+        });
+        log(modResponse);
+
+        sendResponse(modResponse, response);
+
+    } catch (error) {
+        log(error.message);
+        sendResponse({
+            status : 2,
+            message : "Error Running Request",
+            headCode : 500,
+            code : "C003"
+        });
+        
+    } 
 }
 
 
