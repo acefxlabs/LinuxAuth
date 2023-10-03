@@ -1,8 +1,10 @@
+const { log } = require('console');
+
 const contentType = {
     'Content-Type': 'text/plain'
 };
 
-const sendResponse = (data, response) => {
+const sendResponse = async (data, response) => {
     
     response.setHeader('Access-Control-Allow-Origin', '*');
     response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
@@ -35,11 +37,12 @@ const sendResponse = (data, response) => {
         response.end(JSON.stringify({
             status: 2,
             code : 'C001',
+            message : "Request Error"
         }));
     }
 
 }
 
-module.export = {
+module.exports = {
     sendResponse
 }
