@@ -2,7 +2,7 @@
   "name": "linuxauth",
   "version": "1.0.0",
   "description": "Using linux users to auth your application + Webmin/Virtualmin Integration",
-  "main": "auth.js",
+  "main": "base.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
