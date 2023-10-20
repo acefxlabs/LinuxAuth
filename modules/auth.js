@@ -15,45 +15,14 @@ const authUser = async (requestData) => {
         shell : 'bash'
     }
     
-    let findUsers = {}; 
-    // await exec(`awk -F: '{printf "User: %s\tHome Directory: %s\n", $1, $6}' /etc/passwd`,
-    try {
-        
-        findUsers = execSync(
-            `compgen -u`,
-            execOptions
-        );
-
-    } catch (error) {
-        log(error);
-        return {
-            status: 2,
-            message: "Error Running Command",
-            headCode: 500,
-            code : "A000"
-        }
-    }
-
-    const allUsers = findUsers.split('\n');
+    let findUsers = await findUser(body.username, body.home);
     
-    if(allUsers.includes(body.username)){
-
-        let getUserHome = execSync(
-            `eval echo "~${body.username}"`,
-            execOptions
-        );
-
-        getUserHome = getUserHome.trim();
-
-        //Check if User Home is correct
-        if(getUserHome !== body.home){
-            return {
-                status: 2,
-                message: `Incorrect user acces`,
-                headCode: 403,
-                code: "A002"
-            }
-        }
+    // await exec(`awk -F: '{printf "User: %s\tHome Directory: %s\n", $1, $6}' /etc/passwd`
+    if(findUsers.status === 2){
+        return findUsers;
+    }
+    
+    if (findUsers.status === 1){    
 
         //Validate Password
         return new Promise(resolve => {
@@ -73,9 +42,10 @@ const authUser = async (requestData) => {
 
             validateUser.stderr.on('data', (data) => {
                 const resp = String(data);
+
                 if(resp.toLowerCase() === 'password'){
                 }else{
-                    if(resp.includes('Authentication failure')){
+                    if(resp.toLowerCase().includes('authentication failure')){
                         resolve({
                             status: 2,
                             message: `Incorrect Username / Password`,
@@ -87,46 +57,44 @@ const authUser = async (requestData) => {
                 console.error(`stderr: ${data}`);
             });
     
-            validateUser.on('close', (code) => {
-                console.log(`child process exited with code ${code}`);
+            validateUser.on('close', 
+                (code) => {
 
                 //Successful Login
-                if(code === 0){
-                    //Check my home
-                    let getMyHome = execSync(
-                        `whoami`,
-                        execOptions
-                    );
-                    
-                    if(getMyHome.trim() === body.username){
-                        //Exit
-                        execSync(
-                            `whoami`,
-                            execOptions
-                        );
+                // if(code === 0){
+                
+                //Check my home
+                let getMyHome = execSync(
+                    `whoami`,
+                    execOptions
+                );
 
-                        resolve({
-                            status: 1,
-                            message: `Login Successful`,
-                            headCode: 200,
-                            data : {}
-                        });
-                    }
-                }
+                resolve({
+                    status: 1,
+                    message: `Login Successful`,
+                    headCode: 200,
+                    data: {}
+                });
+
+                // if (getMyHome.trim() === body.username) {
+                //     //Exit
+                //     execSync(
+                //         `whoami`,
+                //         execOptions
+                //     );
+
+                //     resolve({
+                //         status: 1,
+                //         message: `Login Successful`,
+                //         headCode: 200,
+                //         data: {}
+                //     }); 
+                // }
 
             });
         })
 
-    } else {
-        return {
-            status: 2,
-            message: `User (${body.username}) not found`,
-            headCode: 403,
-            code : "A001"
-        }
     }
-
-
 
     // let authenticate = {
     //     username : body.username,
@@ -143,6 +111,110 @@ const authUser = async (requestData) => {
 
 }
 
+const changePassword = async (requestData) => {
+
+    const { body } = requestData;
+
+    const execOptions = {
+        encoding: 'utf8',
+        shell: 'bash'
+    }
+
+    let authentication = await authUser(requestData);
+
+    if(authentication.status !== 1){
+        return authentication;
+    }
+
+    //Now To Reset Password
+    const passwd = spawn(
+        'sudo passwd', [body.username],
+        // { stdio: ['pipe', 'pipe', 'pipe'] }
+        { stdio: ['pipe', 'pipe'] }
+    );
+
+    // passwd.stdin.write(body.password + '\n');
+    passwd.stdin.write(body.newPassword + '\n');
+    passwd.stdin.write(body.newPassword + '\n');
+    passwd.stdin.end();
+
+    passwd.stdout.on('data', data => {
+        log(data);
+    })
+
+    passwd.stdout.on('code', code => {
+        log(code);
+    })
+
+
+
+}
+
+//User Finder Function
+async function findUser(user, home){
+ 
+    const execOptions = {
+        encoding: 'utf8',
+        shell: 'bash'
+    }
+
+    let findUsers = {};
+
+    try {
+
+        findUsers = execSync(
+            `compgen -u`,
+            execOptions
+        );
+
+    } catch (error) {
+        return {
+            status: 2,
+            message: "Error Running Command",
+            headCode: 500,
+            code: "A000"
+        }
+    }
+
+    //Check Specific user
+    const allUsers = String(findUsers).split('\n');
+    
+    if (!allUsers.includes(user)) {
+        return {
+            status: 2,
+            message: `User (${user}) not found`,
+            headCode: 403,
+            code: "A001"
+        }
+    }
+    
+    let getUserHome = execSync(
+        `eval echo "~${user}"`,
+        execOptions
+    );
+
+    getUserHome = getUserHome.trim();
+
+    //Check if User Home is correct
+    if (getUserHome.includes(home)) {
+        return {
+            status: 1,
+            message: "User Home Found",
+            data: getUserHome
+        }
+    }else{
+        return {
+            status: 2,
+            message: `Incorrect user acces`,
+            headCode: 403,
+            code: "A002"
+        }
+    }
+    
+}
+
+
 module.exports = {
-    authUser
+    authUser,
+    changePassword
 }
