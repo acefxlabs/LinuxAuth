@@ -24,6 +24,8 @@ try {
 //Start Application
 const server  = createServer((request, response) => {
 
+    log('request In');
+
     let headers = request.headers,
     method = request.method.toUpperCase(), 
     body = {},
@@ -105,7 +107,6 @@ async function runModule(
     //Due to security reason its important we have a way to ensure request is authorized
     if(
         !('authorization' in requestData.headers)
-        || !config.allowedAuth.includes(requestData.headers.authorization)
     ){
         sendResponse({
             status: 2,
@@ -116,6 +117,24 @@ async function runModule(
         response);
 
         return;
+    } else {
+
+        let check = config.allowedAuth.filter(x => {
+            return x.code === requestData.headers.authorization 
+        });
+        
+        if(check.length === 0){
+            sendResponse({
+                status: 2,
+                message: "Unathorized Request",
+                code: "C002",
+                headCode: 401
+            },
+            response);
+        }
+
+        body = {...requestData.body, ...check[0] };
+        requestData.body = body;
     }
 
     //Split url to get data
@@ -141,11 +160,11 @@ async function runModule(
         const module = require(path);
 
         const modResponse = await module[endPoint]({
-            headers : requestData.header,
+            headers : requestData.headers,
             query : requestData.query,
-            body : requestData.body,
+            body : requestData.body
         });
-        log(modResponse);
+        // log(modResponse);
 
         sendResponse(modResponse, response);
 
