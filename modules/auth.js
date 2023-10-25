@@ -4,7 +4,7 @@
  */
 
 
-const { spawn, execSync } = require('child_process'),
+const { spawn, execSync, exec } = require('child_process'),
 { log } = require('console');
 
 const authUser = async (requestData) => {
@@ -59,6 +59,7 @@ const authUser = async (requestData) => {
     
             validateUser.on('close', 
                 (code) => {
+                    log(code);
 
                 //Successful Login
                 // if(code === 0){
@@ -68,6 +69,7 @@ const authUser = async (requestData) => {
                     `whoami`,
                     execOptions
                 );
+                // log(getMyHome);
 
                 resolve({
                     status: 1,
@@ -126,27 +128,98 @@ const changePassword = async (requestData) => {
         return authentication;
     }
 
+    log('-------');
+    log(authentication);
+    log('-------');
+
+
+    /*
     //Now To Reset Password
     const passwd = spawn(
-        'sudo passwd', [body.username],
-        // { stdio: ['pipe', 'pipe', 'pipe'] }
-        { stdio: ['pipe', 'pipe'] }
+        'passwd', [body.username],
     );
 
     // passwd.stdin.write(body.password + '\n');
-    passwd.stdin.write(body.newPassword + '\n');
-    passwd.stdin.write(body.newPassword + '\n');
+    passwd.stdin.write(`${body.newPassword}\n`);
+    passwd.stdin.write(`${body.newPassword}\n`);
     passwd.stdin.end();
 
-    passwd.stdout.on('data', data => {
-        log(data);
-    })
+    passwd.stdout.on('data', code => {
+
+        log('----------');
+        log(code);
+
+        if (Number(code) === 0) {
+            return {
+                status: 1,
+                message: "Password Changed Successfully",
+                headCode: 200,
+                data: {}
+            }
+        } else {
+            return {
+                status: 2,
+                message: "Password Change Failed",
+                headCode: 400,
+                code: "1000"
+            }
+        }
+    });
 
     passwd.stdout.on('code', code => {
+        log('-----------');
         log(code);
+    });
+
+    passwd.stderr.on(data => {
+        log(data);
+        return {
+            status: 2,
+            message: `Password Change Error`,
+            headCode: 500,
+            code: "A100"
+        }
+    })
+
+    */
+
+
+    // Reset Password
+    
+    return new Promise((resolve) => {
+        
+        // const command = `echo -e "${body.newPassword}\n${body.newPassword}" | passwd ${body.username}`;
+        const command = `echo '${body.username}:${body.newPassword}' | sudo chpasswd`;
+
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`exec error: ${error}`);
+                resolve({
+                    status: 2,
+                    message: `Password Change Error`,
+                    headCode: 500,
+                    code: "A100"
+                });
+            }else{
+                resolve({
+                    status: 1,
+                    message: `Password Changed Successfully`,
+                    headCode: 200,
+                    data: {}
+                });
+            }
+
+            console.log(`---------------`);
+            console.log(`stdout: ${stdout}`);
+            console.log(`---------------`);
+            console.error(`stderr: ${stderr}`);
+        });
+
     })
 
 
+
+    
 
 }
 
