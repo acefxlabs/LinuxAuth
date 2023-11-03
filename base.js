@@ -3,11 +3,11 @@
  */
 
 const { createServer } = require('http'),
-{ StringDecoder } = require('string_decoder'),
-{ sendResponse } = require('./helper'),
-{ readFileSync } = require('fs'),
-url = require('url'),
-{ log } = require('console');
+    { StringDecoder } = require('string_decoder'),
+    { sendResponse } = require('./helper'),
+    { readFileSync } = require('fs'),
+    url = require('url'),
+    { log } = require('console');
 
 let config = {};
 
@@ -22,77 +22,76 @@ try {
 }
 
 //Start Application
-const server  = createServer((request, response) => {
-
-    log('request In');
+const server = createServer((request, response) => {
 
     let headers = request.headers,
-    method = request.method.toUpperCase(), 
-    body = {},
-    query = {};
+        method = request.method.toUpperCase(),
+        body = {},
+        query = {};
 
     //Incase Params is passed in URL get it here
     const parsedUrl = url.parse(request.url, true),
-    params = new Object(parsedUrl.query);
+        params = new Object(parsedUrl.query);
 
     for (let key in params) {
         query[key] = params[key];
     }
 
-    if(
+    if (
         ['GET', 'HEAD'].includes(method)
-    ){
+    ) {
+
         //Run The Module
         runModule(
             {
                 url: parsedUrl.pathname,
-                headers : headers,
-                method : method,
-                query : query,
-                body : body
+                headers: headers,
+                method: method,
+                query: query,
+                body: body
             },
             response
         );
     }
-    else if(
+    else if (
         ['POST', 'PUT', 'PATCH'].includes(method)
-    ){
+    ) {
 
         // Handle POST and PUT requests
         const decoder = new StringDecoder('utf-8');
         let requestData = '';
 
         request
-        .on('data', (data) => {
-            requestData += decoder.write(data);
-        })
-        .on('end', () => {
-            requestData += decoder.end();
+            .on('data', (data) => {
+                requestData += decoder.write(data);
+            })
+            .on('end', () => {
+                requestData += decoder.end();
 
-            body = JSON.parse(requestData);
+                body = JSON.parse(requestData);
 
-            //Run The Module
-            runModule(
-                {
-                    url: parsedUrl.pathname,
-                    headers: headers,
-                    method: method,
-                    query: query,
-                    body: body
-                },
-                response
-            );
-        });
+                //Run The Module
+                runModule(
+                    {
+                        url: parsedUrl.pathname,
+                        headers: headers,
+                        method: method,
+                        query: query,
+                        body: body
+                    },
+                    response
+                );
+            });
 
     }
     else {
         sendResponse({
-            status : 2,
-            message : "Invalid Request Method",
-            code : "C000",
-            headCode : 500
+            status: 2,
+            message: "Invalid Request Method",
+            code: "C000",
+            headCode: 500
         },
-        response);
+            response);
         return;
     }
 
@@ -103,55 +102,57 @@ const server  = createServer((request, response) => {
 async function runModule(
     requestData,
     response,
-){
+) {
     //Due to security reason its important we have a way to ensure request is authorized
-    if(
+    if (
         !('authorization' in requestData.headers)
-    ){
+    ) {
         sendResponse({
             status: 2,
             message: "Unathorized Request",
             code: "C002",
             headCode: 401
-        }, 
-        response);
+        },
+            response);
 
         return;
     } else {
 
         let check = config.allowedAuth.filter(x => {
-            return x.code === requestData.headers.authorization 
+            return x.code === requestData.headers.authorization
         });
-        
-        if(check.length === 0){
+
+        if (check.length === 0) {
             sendResponse({
                 status: 2,
                 message: "Unathorized Request",
                 code: "C002",
                 headCode: 401
             },
-            response);
+                response);
         }
 
-        body = {...requestData.body, ...check[0] };
+        body = { ...requestData.body, ...check[0] };
         requestData.body = body;
     }
 
     //Split url to get data
     // const urlSplit = 
     const pathSegments = requestData.url.split('/').filter(segment => segment !== '');
-    
-    if(pathSegments.length === 1){
+
+    if (pathSegments.length === 1) {
         pathSegments.push('index');
     }
 
     //construct path to file
     let path = '.',
         endPoint = '';
+        
     pathSegments.forEach((seg, index) => {
-        if(index < (pathSegments.length - 1)){
+    
+        if (index < (pathSegments.length - 1)) {
             path += `/${seg}`;
-        }else{
+        } else {
             endPoint = pathSegments[pathSegments.length - 1];
         }
     });
@@ -160,9 +161,9 @@ async function runModule(
         const module = require(path);
 
         const modResponse = await module[endPoint]({
-            headers : requestData.headers,
-            query : requestData.query,
-            body : requestData.body
+            headers: requestData.headers,
+            query: requestData.query,
+            body: requestData.body
         });
         // log(modResponse);
 
@@ -171,16 +172,16 @@ async function runModule(
     } catch (error) {
         log(error.message);
         sendResponse({
-            status : 2,
-            message : "Error Running Request",
-            headCode : 500,
-            code : "C003"
+            status: 2,
+            message: "Error Running Request",
+            headCode: 500,
+            code: "C003"
         });
-        
-    } 
+
+    }
 }
 
 
-server.listen(Number(config.port ), () => {
+server.listen(Number(config.port), () => {
     log(`Server Running on Port : ${config.port} | Started on ${new Date()}`);
 });
