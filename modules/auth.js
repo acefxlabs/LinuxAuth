@@ -59,7 +59,7 @@ const authUser = async (requestData) => {
     
             validateUser.on('close', 
                 (code) => {
-                    log(code);
+                    // log(code);
 
                 //Successful Login
                 // if(code === 0){
@@ -128,10 +128,9 @@ const changePassword = async (requestData) => {
         return authentication;
     }
 
-    log('-------');
-    log(authentication);
-    log('-------');
-
+    // log('-------');
+    // log(authentication);
+    // log('-------');
 
     /*
     //Now To Reset Password
@@ -209,10 +208,10 @@ const changePassword = async (requestData) => {
                 });
             }
 
-            console.log(`---------------`);
-            console.log(`stdout: ${stdout}`);
-            console.log(`---------------`);
-            console.error(`stderr: ${stderr}`);
+            // console.log(`---------------`);
+            // console.log(`stdout: ${stdout}`);
+            // console.log(`---------------`);
+            // console.error(`stderr: ${stderr}`);
         });
 
     })
@@ -220,6 +219,56 @@ const changePassword = async (requestData) => {
 
 
     
+
+}
+
+const pullUsers = async (requestData) => {
+
+    const { body } = requestData;
+
+    const execOptions = {
+        encoding: 'utf8',
+        shell: 'bash'
+    }
+    
+    return new Promise((resolve) => {
+
+        exec(`grep @${body.domain} /etc/passwd`, (error, stdout, stderr) => {
+
+            if (stderr, error) {
+                resolve({
+                    status: 2,
+                    message: "Error Running Process",
+                    headCode: 500,
+                    code: 'A200'
+                });
+            }
+
+            //Users 
+            const rawUsers = stdout.split('\n');
+            let allUsersFormated = [];
+
+            rawUsers.forEach(usr => {
+                let xUser = usr.split(':');
+                if(xUser[0] !== ""){
+                    allUsersFormated.push({
+                        email: xUser[0],
+                        fullName: xUser[4]
+                    });
+                }
+            });
+
+            resolve({
+                status: 1,
+                message: `${allUsersFormated.length} User(s) Found`,
+                headCode: 200,
+                data: allUsersFormated
+            });
+
+        })
+
+    });
+
 
 }
 
@@ -289,5 +338,6 @@ async function findUser(user, home){
 
 module.exports = {
     authUser,
-    changePassword
+    changePassword,
+    pullUsers
 }
