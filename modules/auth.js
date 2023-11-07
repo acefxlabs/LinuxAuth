@@ -5,8 +5,9 @@
 
 
 const { spawn, execSync, exec } = require('child_process'),
-{ log } = require('console');
+{ log, error } = require('console');
 
+//Auth User
 const authUser = async (requestData) => {
 
     const { body } = requestData,
@@ -37,7 +38,7 @@ const authUser = async (requestData) => {
             validateUser.stdin.end();
             
             validateUser.stdout.on('data', (data) => {
-                console.log(`stdout: ${data}`);
+                log(`stdout: ${data}`);
             });
 
             validateUser.stderr.on('data', (data) => {
@@ -54,7 +55,8 @@ const authUser = async (requestData) => {
                         })
                     }
                 }
-                console.error(`stderr: ${data}`);
+
+                error(`stderr: ${data}`);
             });
     
             validateUser.on('close', 
@@ -69,7 +71,6 @@ const authUser = async (requestData) => {
                     `whoami`,
                     execOptions
                 );
-                // log(getMyHome);
 
                 resolve({
                     status: 1,
@@ -113,6 +114,7 @@ const authUser = async (requestData) => {
 
 }
 
+//Change User password
 const changePassword = async (requestData) => {
 
     const { body } = requestData;
@@ -222,6 +224,7 @@ const changePassword = async (requestData) => {
 
 }
 
+// Pull the list of available users
 const pullUsers = async (requestData) => {
 
     const { body } = requestData;
@@ -271,6 +274,138 @@ const pullUsers = async (requestData) => {
 
 
 }
+
+// Create User
+const createUser = async (requestData) => {
+
+    const { body } = requestData,
+    execOptions = {
+        encoding: 'utf8',
+        shell: 'bash'
+    };
+
+    //Check if all values are sent
+    const keys = ['fullname', 'username', 'password'];
+    let verifyKeys = keys.every(key => Object.keys(body).includes(key));
+    
+    if(!verifyKeys){
+        return {
+            status : 2,
+            message : 'Invalid / Incomplete Params',
+            code : 'A300',
+            headCode : 406
+        }
+    }
+
+    let query = `sudo virtualmin create-user --domain ${body.domain} --user ${body.username} --pass ${body.password} --real "${body.fullname}" --ftp`;
+
+    return new Promise((resolve) => {
+
+        exec(query, (error, stdout, stderr) => {
+
+            if (stderr, error) {
+                resolve({
+                    status: 2,
+                    message: "Error Running Process",
+                    headCode: 500,
+                    code: 'A301'
+                });
+            }
+
+            //Users 
+            if (stdout.includes('created successfully')){
+                resolve({
+                    status: 1,
+                    message: ` User Account (Email and Portal) created successfully`,
+                    headCode: 200,
+                    data: {}
+                });
+            }else{
+                log(stdout);
+                resolve({
+                    status : 2,
+                    message : "Error Creating User",
+                    headCode : 500,
+                    code : "A302"
+                });
+            }
+
+
+        })
+
+    });
+
+
+
+
+}
+// Create User
+const modifyUser = async (requestData) => {
+
+    const { body } = requestData,
+    execOptions = {
+        encoding: 'utf8',
+        shell: 'bash'
+    };
+
+    //Check if all values are sent
+    const keys = ['username', 'action'];
+    let verifyKeys = keys.every(key => Object.keys(body).includes(key));
+    
+    if(!verifyKeys){
+        return {
+            status : 2,
+            message : 'Invalid / Incomplete Params',
+            code : 'A400',
+            headCode : 406
+        }
+    }
+
+    let query = `sudo virtualmin modify-user --domain ${body.domain} --user ${body.username}`;
+    body.action.forEach(act => {
+        query = `${query} --${act.key} ${act.value}`;
+    });
+
+    return new Promise((resolve) => {
+
+        exec(query, (error, stdout, stderr) => {
+
+            if (stderr, error) {
+                resolve({
+                    status: 2,
+                    message: "Error Running Process",
+                    headCode: 500,
+                    code: 'A401'
+                });
+            }
+
+            //Users 
+            log(stdout);
+            if (stdout.includes('updated successfully')){
+                resolve({
+                    status: 1,
+                    message: `Request Processed Successfully`,
+                    headCode: 200,
+                    data: {}
+                });
+            }else{
+                log(stdout);
+                resolve({
+                    status : 2,
+                    message : "Error Running Process",
+                    headCode : 500,
+                    code : "A402"
+                });
+            }
+        })
+
+    });
+
+
+
+
+}
+
 
 //User Finder Function
 async function findUser(user, home){
@@ -339,5 +474,7 @@ async function findUser(user, home){
 module.exports = {
     authUser,
     changePassword,
-    pullUsers
+    pullUsers,
+    createUser,
+    modifyUser
 }
